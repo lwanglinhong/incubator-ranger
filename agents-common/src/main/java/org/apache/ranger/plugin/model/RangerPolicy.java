@@ -20,6 +20,7 @@
 package org.apache.ranger.plugin.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -645,6 +646,8 @@ public class RangerPolicy extends RangerBaseModelObject implements java.io.Seria
 					this.users.add(user);
 				}
 			}
+			// use a sorted list
+			Collections.sort(this.users);
 		}
 		/**
 		 * @return the groups
@@ -669,6 +672,8 @@ public class RangerPolicy extends RangerBaseModelObject implements java.io.Seria
 					this.groups.add(group);
 				}
 			}
+			// use a sorted list
+			Collections.sort(this.groups);
 		}
 		/**
 		 * @return the conditions

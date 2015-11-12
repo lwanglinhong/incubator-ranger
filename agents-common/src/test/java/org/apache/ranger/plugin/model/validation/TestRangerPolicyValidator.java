@@ -739,6 +739,139 @@ public class TestRangerPolicyValidator {
 	}
 	
 	@Test
+	public final void test_isPolicyAccessesUnique() throws Exception {
+          // duplicate <user, access> entries in a policy
+		final Object[] policyItemsData1 = new Object[] {
+			ImmutableMap.of(  // all good
+				"users", new String[] {"user1" ,"user2"},
+				"accesses", new String[] { "r", "w" },
+				"isAllowed", new Boolean[] { true, true }),
+			ImmutableMap.of(   // no users, access type different case
+				"users", new String[] {"user1"},
+				"accesses", new String[]{"r"}, 
+				"isAllowed", new Boolean[] { true, true })
+		};
+		List<RangerPolicyItem> policyItems1 = _utils.createPolicyItems(policyItemsData1);
+		// valid policy has valid non-empty name and service name 
+		when(_policy.getService()).thenReturn("service-name");
+		when(_policy.getPolicyItems()).thenReturn(policyItems1);
+		when(_policy.getIsAuditEnabled()).thenReturn(true);
+		// service name exists
+		RangerService service = mock(RangerService.class);
+		when(service.getType()).thenReturn("service-type");
+		when(_store.getServiceByName("service-name")).thenReturn(service);
+		// service points to a valid service-def
+		_serviceDef = _utils.createServiceDefWithAccessTypes(accessTypes);
+		when(_serviceDef.getName()).thenReturn("service-type");
+		when(_store.getServiceDefByName("service-type")).thenReturn(_serviceDef);
+		// a matching policy should exist for create when checked by id and not exist when checked by name.
+		when(_store.getPolicy(7L)).thenReturn(null);
+		RangerPolicy existingPolicy = mock(RangerPolicy.class);
+		when(existingPolicy.getId()).thenReturn(8L);
+		when(_store.getPolicy(8L)).thenReturn(existingPolicy);
+		_failures.clear();
+		for (Action action : cu) {
+			for (boolean isAdmin : new boolean[] { true, false}) {
+				if (action == Action.CREATE) {
+					when(_policy.getId()).thenReturn(7L);
+					when(_policy.getName()).thenReturn("policy-name-1");
+				} else {
+					when(_policy.getId()).thenReturn(8L);
+					when(_policy.getName()).thenReturn("policy-name-2");
+				}
+				assertFalse("" + action , _validator.isValid(_policy, action, isAdmin, _failures));
+				assertFalse(_failures.isEmpty());
+				_utils.checkFailureForSemanticError(_failures, "policy item");
+			}
+		}
+
+		// Duplicate user, unique access type: OK
+		final Object[] policyItemsData2 = new Object[] {
+		ImmutableMap.of(  // all good
+			"users", new String[] {"user1" ,"user2"},
+			"accesses", new String[] { "w" },
+			"isAllowed", new Boolean[] { true, true }),
+		ImmutableMap.of(   // no users, access type different case
+			"users", new String[] {"user1"},
+			"accesses", new String[]{"r"},
+			"isAllowed", new Boolean[] { true, true })
+		};
+		List<RangerPolicyItem> policyItems2 = _utils.createPolicyItems(policyItemsData2);
+		when(_policy.getPolicyItems()).thenReturn(policyItems2);
+		_failures.clear();
+		for (Action action : cu) {
+			for (boolean isAdmin : new boolean[] { true, false}) {
+				if (action == Action.CREATE) {
+					when(_policy.getId()).thenReturn(7L);
+					when(_policy.getName()).thenReturn("policy-name-1");
+				} else {
+					when(_policy.getId()).thenReturn(8L);
+					when(_policy.getName()).thenReturn("policy-name-2");
+				}
+				assertTrue("" + action , _validator.isValid(_policy, action, isAdmin, _failures));
+				assertTrue(_failures.isEmpty());
+			}
+		}
+
+		// Duplicate user, null access type, isAdmin is TRUE: FAILURE
+		final Object[] policyItemsData3 = new Object[] {
+		ImmutableMap.of(  // all good
+			"users", new String[] {"user1" ,"user2"},
+			"accesses", new String[]{},
+			"isAllowed", new Boolean[] { true, true }),
+		ImmutableMap.of(   // no users, access type different case
+			"users", new String[] {"user2"},
+			"accesses", new String[]{},
+			"isAllowed", new Boolean[] { true, true })
+		};
+		List<RangerPolicyItem> policyItems3 = _utils.createPolicyItems(policyItemsData3);
+		when(_policy.getPolicyItems()).thenReturn(policyItems3);
+		for (RangerPolicyItem policyItem : policyItems3) {
+			when(policyItem.getDelegateAdmin()).thenReturn(true);
+		}
+		for (Action action : cu) {
+			boolean isAdmin = true;
+			if (action == Action.CREATE) {
+				when(_policy.getId()).thenReturn(7L);
+				when(_policy.getName()).thenReturn("policy-name-1");
+			} else {
+				when(_policy.getId()).thenReturn(8L);
+				when(_policy.getName()).thenReturn("policy-name-2");
+			}
+			assertFalse("" + action , _validator.isValid(_policy, action, isAdmin, _failures));
+			assertFalse(_failures.isEmpty());
+			_utils.checkFailureForSemanticError(_failures, "policy item");
+		}
+		_failures.clear();
+
+		// Duplicate user in a single policy item, null access type, isAdmin is TRUE: FAILURE
+		final Object[] policyItemsData4 = new Object[] {
+		ImmutableMap.of(  // all good
+			"users", new String[] {"user1" ,"user1"},
+			"accesses", new String[]{},
+			"isAllowed", new Boolean[] { true, true }),
+		};
+		List<RangerPolicyItem> policyItems4 = _utils.createPolicyItems(policyItemsData4);
+		when(_policy.getPolicyItems()).thenReturn(policyItems3);
+		for (RangerPolicyItem policyItem : policyItems4) {
+			when(policyItem.getDelegateAdmin()).thenReturn(true);
+		}
+		for (Action action : cu) {
+			boolean isAdmin = true;
+			if (action == Action.CREATE) {
+				when(_policy.getId()).thenReturn(7L);
+				when(_policy.getName()).thenReturn("policy-name-1");
+			} else {
+				when(_policy.getId()).thenReturn(8L);
+				when(_policy.getName()).thenReturn("policy-name-2");
+			}
+			assertFalse("" + action , _validator.isValid(_policy, action, isAdmin, _failures));
+			assertFalse(_failures.isEmpty());
+			_utils.checkFailureForSemanticError(_failures, "policy item");
+		}
+	}
+
+	@Test
 	public final void test_isValidResourceNames_happyPath() {
 		String serviceName = "a-service-def";
 		// setup service-def

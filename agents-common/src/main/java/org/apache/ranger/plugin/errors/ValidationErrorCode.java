@@ -87,6 +87,8 @@ public enum ValidationErrorCode {
     POLICY_VALIDATION_ERR_POLICY_ITEM_ACCESS_TYPE_DENY(3023, "Currently deny access types are not supported. Access type is set to deny."),
     POLICY_VALIDATION_ERR_INVALID_RESOURCE_NO_COMPATIBLE_HIERARCHY_SINGLE(3024, "Invalid resources specified. {0} policy can specify values for the following resources: {1}"),
     POLICY_VALIDATION_ERR_INVALID_RESOURCE_MISSING_MANDATORY_SINGLE(3025, "Invalid resources specified. {0} policy must specify values for the following resources: {1}"),
+    POLICY_VALIDATION_ERR_INVALID_POLICY_ITEM_UG_CONFLICT(3026, "Another User/Group [{0}] with Delegate Admin already exists"),
+    POLICY_VALIDATION_ERR_INVALID_POLICY_ITEM_CONFLICT(3027, "Another User/Group [{0}] with Access Type [{1}] already exists"),
     ;
 
 

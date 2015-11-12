@@ -611,6 +611,8 @@ public class RangerPolicyValidator extends RangerValidator {
 		if (CollectionUtils.isEmpty(policyItems)) {
 			LOG.debug("policy items collection was null/empty");
 		} else {
+			HashSet<Pair<String, String>> userKeys = new HashSet();
+			HashSet<Pair<String, String>> groupKeys = new HashSet();
 			for (RangerPolicyItem policyItem : policyItems) {
 				if (policyItem == null) {
 					ValidationErrorCode error = ValidationErrorCode.POLICY_VALIDATION_ERR_NULL_POLICY_ITEM;
@@ -624,12 +626,56 @@ public class RangerPolicyValidator extends RangerValidator {
 				} else {
 					// we want to go through all elements even though one may be bad so all failures are captured
 					valid = isValidPolicyItem(policyItem, failures, serviceDef) && valid;
+					// check to make sure the <user/group, access type> is unique
+					List<RangerPolicyItemAccess> accesses = policyItem.getAccesses();
+					List<String> users = policyItem.getUsers();
+					List<String> groups = policyItem.getGroups();
+					valid = isUniquePrivs(users, userKeys, accesses, failures);
+					valid = isUniquePrivs(groups, groupKeys, accesses, failures) && valid;
 				}
 			}
 		}
 
 		if(LOG.isDebugEnabled()) {
 			LOG.debug(String.format("<== RangerPolicyValidator.isValid(%s, %s, %s): %s", policyItems, failures, serviceDef, valid));
+		}
+		return valid;
+	}
+
+	boolean isUniquePrivs(List<String> ugs, HashSet<Pair<String, String>> keys,
+				List<RangerPolicyItemAccess> accesses, List<ValidationFailureDetails> failures) {
+		if (CollectionUtils.isEmpty(ugs)) return true;
+		boolean valid = true;
+		if (CollectionUtils.isEmpty(accesses)) {
+			for (String ug : ugs) {
+				valid = keys.add(new Pair(ug.toLowerCase(), null));
+				if (!valid) {
+					ValidationErrorCode error = ValidationErrorCode.POLICY_VALIDATION_ERR_INVALID_POLICY_ITEM_UG_CONFLICT;
+					failures.add(new ValidationFailureDetailsBuilder()
+						.field("policy item")
+						.isSemanticallyIncorrect()
+						.becauseOf(error.getMessage(ug))
+						.errorCode(error.getErrorCode())
+						.build());
+					return false;
+				}
+			}
+		} else {
+			for (String ug : ugs) {
+				for (RangerPolicyItemAccess access : accesses) {
+					valid = keys.add(new Pair(ug.toLowerCase(), access.getType().toLowerCase()));
+					if (!valid) {
+						ValidationErrorCode error = ValidationErrorCode.POLICY_VALIDATION_ERR_INVALID_POLICY_ITEM_CONFLICT;
+						failures.add(new ValidationFailureDetailsBuilder()
+							.field("policy item")
+							.isSemanticallyIncorrect()
+							.becauseOf(error.getMessage(ug, access))
+							.errorCode(error.getErrorCode())
+							.build());
+						return false;
+					};
+				}
+			}
 		}
 		return valid;
 	}
@@ -761,5 +807,88 @@ public class RangerPolicyValidator extends RangerValidator {
 			LOG.debug(String.format("<== RangerPolicyValidator.isValidPolicyItemAccess(%s, %s, %s): %s", access, failures, accessTypes, valid));
 		}
 		return valid;
+	}
+
+	class Pair<T1, T2> {
+		protected T1 first = null;
+		protected T2 second = null;
+
+		/**
+		 * Default constructor.
+		 */
+		public Pair() {
+		}
+
+		/**
+		 * Constructor
+		 *
+		 * @param a operand
+		 * @param b operand
+		 */
+		public Pair(T1 a, T2 b) {
+			this.first = a;
+			this.second = b;
+		}
+
+		/**
+		 * Replace the first element of the pair.
+		 *
+		 * @param a operand
+		 */
+		public void setFirst(T1 a) {
+			this.first = a;
+		}
+
+		/**
+		 * Replace the second element of the pair.
+		 *
+		 * @param b operand
+		 */
+		public void setSecond(T2 b) {
+			this.second = b;
+		}
+
+		/**
+		 * Return the first element stored in the pair.
+		 *
+		 * @return T1
+		 */
+	        public T1 getFirst() {
+			return first;
+		}
+
+		/**
+		 * Return the second element stored in the pair.
+		 *
+		 * @return T2
+		 */
+		public T2 getSecond() {
+			return second;
+		}
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public boolean equals(Object other) {
+			return other instanceof Pair &&
+				((first == null && ((Pair) other).first == null) ||
+				(first != null && first.equals(((Pair) other).first))) &&
+				((second == null && ((Pair) other).second == null) ||
+				(second != null && second.equals(((Pair) other).second)));
+		}
+
+		@Override
+		public int hashCode() {
+			if (first == null)
+				return (second == null) ? 0 : second.hashCode() + 1;
+			else if (second == null)
+				return first.hashCode() + 2;
+			else
+				return first.hashCode() * 17 + second.hashCode();
+		}
+
+		@Override
+		public String toString() {
+			return "{" + getFirst() + "," + getSecond() + "}";
+		}
 	}
 }
